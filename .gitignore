@@ -1,0 +1,54 @@
+# Виртуальное окружение
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Файлы байт-кода Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Секреты и переменные окружения (ВАЖНО: никогда не удаляйте эти строки!)
+.env
+.env.*
+!.env.example
+
+# Артефакты сборки и дистрибуции
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Отчеты о тестировании и покрытии
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Файлы логов
+*.log
+
+# Файлы баз данных (например, SQLite, если вы его используете)
+*.db
+*.sqlite
+*.sqlite3
+
+# Файлы, создаваемые IDE (общие для всех)
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store (для macOS)
+Thumbs.db (для Windows)
+
+# Файлы, специфичные для менеджеров зависимостей (оставьте заблокированными)
+poetry.toml
+.pdm.toml
