@@ -1,28 +1,30 @@
-from fastapi import APIRouter, status, HTTPException
-
+from fastapi import APIRouter, status, HTTPException, Depends
 from blog.domains import Admin
-from blog.schemas import(
-    GetArticleModel,
+from blog.schemas import (
+    GetArticlesModel,
     CreateArticleModel,
     LoginModel,
     GetArticleModel,
     ErrorModel,
 )
-
 from blog import services
 from blog.repositories import ShelveArticlesRepository, MemoryUsersRepository
 
-router = APIRouter()  # это роутер, он нужен для FastAPI, чтобы определять эндпоинты
+router = APIRouter()
 
-@router.get("/articles", response_model=GetArticleModel)
-def get_articles() -> GetArticlesModel:
-    # во всех представлениях всегда происходит одно и то же: 
-    # 1. получили данные 
-    # 2. вызвали сервисный метод и получили из него результат
-    # 3. вернули результат клиенту в виде ответа
-    articles = services.get_articles(articles_repository=ShelveArticlesRepository())
-    return GetArticleModel(
-        items = [
+def get_articles_repository():
+    return ShelveArticlesRepository()
+
+def get_users_repository():
+    return MemoryUsersRepository()
+
+@router.get("/articles", response_model=GetArticlesModel)
+def get_articles(
+    articles_repo: ShelveArticlesRepository = Depends(get_articles_repository)
+) -> GetArticlesModel:
+    articles = services.get_articles(articles_repository=articles_repo)
+    return GetArticlesModel(
+        items=[
             GetArticleModel(id=article.id, title=article.title, content=article.content)
             for article in articles
         ]
@@ -31,32 +33,44 @@ def get_articles() -> GetArticlesModel:
 @router.post(
     "/articles",
     response_model=GetArticleModel,
-    status_code = status.HTTP_201_CREATED, # 201 статус код потому что мы создаем объект - стандарт HTTP
-    responses = {201:{"model": GetArticleModel}, 401: {"model": ErrorModel}, 403: {"model":ErrorModel}}
-    # Это нужно для сваггера. Мы перечисляем ответы эндпоинта, чтобы получить четкую документацию.
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": ErrorModel, "description": "Authentication failed"},
+        403: {"model": ErrorModel, "description": "Not enough permissions"}
+    },
 )
-def create_article(article: CreateArticleModel, credentials: LoginModel):
+def create_article(
+    article: CreateArticleModel, 
+    credentials: LoginModel,
+    articles_repo: ShelveArticlesRepository = Depends(get_articles_repository),
+    users_repo: MemoryUsersRepository = Depends(get_users_repository)
+) -> GetArticleModel:
     current_user = services.login(
         username=credentials.username,
         password=credentials.password,
-        users_repository=MemoryUsersRepository(),
+        users_repository=users_repo,
     )
-
-    # это аутентификация
+    
     if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unautorized user"
-        )
-    # а это авторизация
-    if not isinstance(current_user, Admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource"
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Unauthorized user"
         )
     
-    article = services.create_article(
+    if not isinstance(current_user, Admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Forbidden resource"
+        )
+
+    new_article = services.create_article(
         title=article.title,
         content=article.content,
-        articles_repository=ShelveArticlesRepository()
+        articles_repository=articles_repo,
     )
 
-    return GetArticleModel(id=article.id, title=article.title, content=article.content)
+    return GetArticleModel(
+        id=new_article.id, 
+        title=new_article.title, 
+        content=new_article.content
+    )
